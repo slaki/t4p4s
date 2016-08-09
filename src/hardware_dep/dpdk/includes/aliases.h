@@ -14,8 +14,11 @@
 #ifndef __ALIASES_H_
 #define __ALIASES_H_
 
-// the shared dataplane.h refers to it
+#include <rte_mbuf.h>
 typedef struct rte_mbuf packet;
+
+#include <rte_spinlock.h>
+typedef rte_spinlock_t lock;
 
 #endif // __ALIASES_H_
 

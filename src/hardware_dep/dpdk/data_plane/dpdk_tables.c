@@ -53,6 +53,12 @@ void create_error_text(int socketid, char* table_type, char* error_text)
 
 void create_error(int socketid, char* table_type)
 {
+    if (rte_errno == E_RTE_NO_CONFIG) {
+        create_error_text(socketid, table_type, "function could not get pointer to rte_config structure");
+    }
+    if (rte_errno == E_RTE_SECONDARY) {
+        create_error_text(socketid, table_type, "function was called from a secondary process instance");
+    }
     if (rte_errno == ENOENT) {
         create_error_text(socketid, table_type, "missing entry");
     }
@@ -290,7 +296,13 @@ lpm_lookup(lookup_table_t* t, uint8_t* key)
         memcpy(&key32, key, t->key_size);
 
         uint8_t result;
+#if RTE_VERSION >= RTE_VERSION_NUM(16,04,0,0)
+        uint32_t result32;
+        int ret = rte_lpm_lookup(ext->rte_table, key32, &result32);
+        result = (uint8_t)result32;
+#else
         int ret = rte_lpm_lookup(ext->rte_table, key32, &result);
+#endif
         return ret == 0 ? ext->content[result] : t->default_val;
     }
     else if(t->key_size <= 16)

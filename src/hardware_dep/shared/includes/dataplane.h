@@ -53,6 +53,16 @@ typedef struct counter_s {
     int socketid;
 } counter_t;
 
+typedef struct p4_register_s {
+    char* name;
+    uint8_t width;
+    int size;
+    lock *locks;
+    uint8_t **values;
+} p4_register_t;
+/* /usr/include/x86_64-linux-gnu/sys/types.h:205:13: note: previous declaration of ‘register_t’ was here
+   typedef int register_t __attribute__ ((__mode__ (__word__))); */
+
 typedef struct field_reference_s {
     header_instance_t header;
     int meta;
@@ -67,6 +77,7 @@ typedef struct field_reference_s {
 typedef struct header_reference_s {
     header_instance_t header_instance;
     int bytewidth;
+    int variable_field;
 } header_reference_t;
 
 #define field_desc(f) (field_reference_t) \
@@ -85,17 +96,20 @@ typedef struct header_reference_s {
                { \
                  .header_instance = h, \
                  .bytewidth       = header_instance_byte_width[h], \
+                 .variable_field  = header_instance_variable_field[h], \
                }
 
 typedef struct header_descriptor_s {
     header_instance_t   type;
     void *              pointer;
     uint32_t            length;
+    int                 var_field_bitwidth;
 } header_descriptor_t;
 
 typedef struct packet_descriptor_s {
     void *              data;
     header_descriptor_t headers[HEADER_INSTANCE_COUNT+1];
+    parsed_fields_t     fields;
     packet *            wrapper;
 } packet_descriptor_t;
 
@@ -104,6 +118,7 @@ typedef struct packet_descriptor_s {
 
 extern lookup_table_t table_config[];
 extern counter_t counter_config[];
+extern p4_register_t register_config[];
 
 void init_dataplane(packet_descriptor_t* packet, lookup_table_t** tables);
 void handle_packet(packet_descriptor_t* packet, lookup_table_t** tables);

@@ -20,6 +20,7 @@ int handle_p4_msg(char* buffer, int length, p4_msg_callback cb)
 {
 	struct p4_header* header;
 	struct p4_ctrl_msg ctrl_m;
+	struct p4_add_table_entry* buf;
 	int rval;
 
 	if (length<sizeof(struct p4_header)) return -1;
@@ -38,7 +39,10 @@ int handle_p4_msg(char* buffer, int length, p4_msg_callback cb)
 			cb(&ctrl_m);
 			break;
 		case P4T_ADD_TABLE_ENTRY:
-			printf("  :::: ADD_TABLE_ENTRY\n");
+			buf = (struct p4_add_table_entry*)buffer;
+//			printf("  :::: ADD_TABLE_ENTRY (%d)\n", buf->);
+//			printf("  :::: ADD_TABLE_ENTRY\n");
+			printf("  :::: ADD_TABLE_ENTRY (%s)\n", buf->table_name);
             rval = handle_p4_add_table_entry(netconv_p4_add_table_entry((struct p4_add_table_entry*)buffer), &ctrl_m);
             printf("    :: rval=%d\n", rval);
             if (rval<0) return rval;

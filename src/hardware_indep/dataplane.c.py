@@ -27,7 +27,8 @@ for table in hlir.p4_tables.values():
     #[ void apply_table_${table.name}(packet_descriptor_t* pd, lookup_table_t** tables);
 #[
 
-#[ uint8_t reverse_buffer[${max([t[1] for t in map(getTypeAndLength, hlir.p4_tables.values())])}];
+if len(hlir.p4_tables.values())>0:
+    #[ uint8_t reverse_buffer[${max([t[1] for t in map(getTypeAndLength, hlir.p4_tables.values())])}];
 
 def match_type_order(t):
     if t is p4.p4_match_type.P4_MATCH_EXACT:   return 0
@@ -131,6 +132,18 @@ for table in hlir.p4_tables.values():
 #[     init_keyless_tables();
 #[ }
 
+#[
+#[ void update_packet(packet_descriptor_t* pd) {
+#[     uint32_t value32, res32;
+#[     (void)value32, (void)res32;
+for f in hlir.p4_fields.values():
+    if parsed_field(hlir, f):
+        if f.width <= 32:
+            #[ value32 = pd->fields.${fld_id(f)};
+            #[ MODIFY_INT32_INT32_AUTO(pd, ${fld_id(f)}, value32)
+#[ }
+#[
+
 #[ 
 #[ void handle_packet(packet_descriptor_t* pd, lookup_table_t** tables)
 #[ {
@@ -138,4 +151,5 @@ for table in hlir.p4_tables.values():
 #[     EXTRACT_INT32_BITS(pd, field_instance_standard_metadata_ingress_port, value32)
 #[     debug("### HANDLING PACKET ARRIVING AT PORT %" PRIu32 "...\n", value32);
 #[     parse_packet(pd, tables);
+#[     update_packet(pd);
 #[ }

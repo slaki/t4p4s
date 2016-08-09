@@ -11,23 +11,67 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from p4_hlir.hlir.p4_headers import p4_field, p4_field_list
+from p4_hlir.hlir.p4_headers import p4_field, p4_field_list, p4_header_keywords
 from p4_hlir.hlir.p4_imperatives import p4_signature_ref
 from utils.misc import addError, addWarning 
-from utils.hlir import hdr_prefix, fld_prefix, fld_id, userActions 
+from utils.hlir import *
+import math
 
 #[ #include "dpdk_lib.h"
 #[ #include "actions.h"
 #[ #include <unistd.h>
 #[ #include <arpa/inet.h>
-#[ extern void increase_counter (int counterid, int index);
 #[
 #[ extern backend bg;
 #[
 
-actions = hlir.p4_actions
-useractions = userActions(actions)
-useraction_objs = [(actions[act_key]) for act_key in useractions ]
+# =============================================================================
+# Helpers for field access and update
+# (read/write the cached/pre-parsed value where possible)
+
+# TODO now that these abstractions have been made, we might decide to
+#   get rid of _AUTO versions of macros and implement the branching here
+
+def modify_int32_int32(f):
+    generated_code = ""
+    if parsed_field(hlir, f):
+        #[ pd->fields.${fld_id(f)} = value32;
+    else:
+        #[ MODIFY_INT32_INT32_AUTO(pd, ${fld_id(f)}, value32)
+    return generated_code
+
+def extract_int32(f, var):
+    generated_code = ""
+    if parsed_field(hlir, f):
+        #[ res32 = pd->fields.${fld_id(f)};
+    else:
+        #[ EXTRACT_INT32_AUTO(pd, ${fld_id(f)}, ${var})
+    return generated_code
+
+# =============================================================================
+# Helpers for saturating in add_to_field
+
+def max_value(bitwidth, signed):
+    if signed:
+        return long(math.pow(2,bitwidth-1)) - 1
+    else:
+        return long(math.pow(2,bitwidth)) - 1
+
+def min_value(bitwidth, signed):
+    if signed:
+        return -long(math.pow(2,bitwidth-1)) + 1
+    else:
+        return 0
+
+# dst += src;
+def add_with_saturating(dst, src, bitwidth, signed):
+    generated_code = ""
+    upper = max_value(bitwidth, signed)
+    lower = min_value(bitwidth, signed)
+    #[ if (${upper} - ${dst} < ${src}) ${dst} = ${upper};
+    #[ else if (${lower} - ${dst} > ${src}) ${dst} = ${lower};
+    #[ else ${dst} += ${src};
+    return generated_code
 
 # =============================================================================
 # MODIFY_FIELD
@@ -43,7 +87,7 @@ def modify_field(fun, call):
     if isinstance(src, int):
         #[ value32 = ${src};
         if dst.width <= 32:
-            #[ MODIFY_INT32_INT32_AUTO(pd, ${fld_id(dst)}, value32)
+            #[ ${ modify_int32_int32(dst) }
         else:
             if dst.width % 8 == 0 and dst.offset % 8 == 0:
                 #[ MODIFY_BYTEBUF_INT32(pd, ${fld_id(dst)}, value32) //TODO: This macro is not implemented
@@ -55,8 +99,8 @@ def modify_field(fun, call):
                 #[ EXTRACT_INT32_BITS(pd, ${fld_id(src)}, value32)
                 #[ MODIFY_INT32_INT32_BITS(pd, ${fld_id(dst)}, value32)
             else:
-                #[ EXTRACT_INT32_AUTO(pd, ${fld_id(src)}, value32)
-                #[ MODIFY_INT32_INT32_AUTO(pd, ${fld_id(dst)}, value32)
+                #[ ${ extract_int32(src, 'value32') }
+                #[ ${ modify_int32_int32(dst) }
         elif src.width != dst.width:
             addError("generating modify_field", "bytebuf field-to-field of different widths is not supported yet")
         else:
@@ -89,24 +133,30 @@ def add_to_field(fun, call):
     if isinstance(val, int):
         #[ value32 = ${val};
         if dst.width <= 32:
-            #[ EXTRACT_INT32_AUTO(pd, ${fld_id(dst)}, res32)
-            #[ value32 += res32;
-            #[ MODIFY_INT32_INT32_AUTO(pd, ${fld_id(dst)}, value32)
+            #[ ${ extract_int32(dst, 'res32') }
+            if (p4_header_keywords.saturating in dst.attributes):
+               #[ ${ add_with_saturating('value32', 'res32', dst.width, (p4_header_keywords.signed in dst.attributes)) }
+            else:
+                #[ value32 += res32;
+            #[ ${ modify_int32_int32(dst) }
         else:
             addError("generating modify_field", "Bytebufs cannot be modified yet.")
     elif isinstance(val, p4_field):
         if dst.width <= 32 and val.length <= 32:
-            #[ EXTRACT_INT32_AUTO(pd, ${fld_id(val)}, value32)
-            #[ EXTRACT_INT32_AUTO(pd, ${fld_id(dst)}, res32)
-            #[ value32 += res32;
-            #[ MODIFY_INT32_INT32_AUTO(pd, ${fld_id(dst)}, value32)
+            #[ ${ extract_int32(val, 'value32') }
+            #[ ${ extract_int32(dst, 'res32') }
+            if (p4_header_keywords.saturating in dst.attributes):
+               #[ ${ add_with_saturating('value32', 'res32', dst.width, (p4_header_keywords.signed in dst.attributes)) }
+            else:
+                #[ value32 += res32;
+            #[ ${ modify_int32_int32(dst) }
         else:
             addError("generating add_to_field", "bytebufs cannot be modified yet.")
     elif isinstance(val, p4_signature_ref):
         p = "parameters.%s" % str(fun.signature[val.idx])
         l = fun.signature_widths[val.idx]
         if dst.width <= 32 and l <= 32:
-            #[ EXTRACT_INT32_AUTO(pd, ${fld_id(dst)}, res32)
+            #[ ${ extract_int32(dst, 'res32') }
             #[ TODO
         else:
             addError("generating add_to_field", "bytebufs cannot be modified yet.")
@@ -121,12 +171,73 @@ def count(fun, call):
     counter = args[0]
     index = args[1]
     if isinstance(index, int): # TODO
-        #[ value32 = ${val};
+        #[ value32 = ${index};
     elif isinstance(index, p4_field): # TODO
-        #[ EXTRACT_INT32_AUTO(pd, ${fld_id(index)}, value32)
+        #[ ${ extract_int32(index, 'value32') }
     elif isinstance(val, p4_signature_ref):
         #[ value32 = TODO;
     #[ increase_counter(COUNTER_${counter.name}, value32);
+    return generated_code
+
+# =============================================================================
+# REGISTER_READ
+
+rc = 0
+
+def register_read(fun, call):
+    global rc
+    generated_code = ""
+    args = call[1]
+    dst = args[0] # field
+    register = args[1]
+    index = args[2]
+    if isinstance(index, int): # TODO
+        #[ value32 = ${index};
+    elif isinstance(index, p4_field): # TODO
+        #[ ${ extract_int32(index, 'value32') }
+    elif isinstance(val, p4_signature_ref):
+        #[ value32 = TODO;
+    #[ uint8_t register_value_${rc}[${(register.width+7)/8}];
+    #[ read_register(REGISTER_${register.name}, value32, register_value_${rc});
+    if register.width > 32:
+        addWarning("register_read", "register value trimmed to 32 bits, sorry about that")
+    #[ memcpy(&value32, register_value_${rc}, 4);
+    if dst.width <= 32:
+        #[ ${ modify_int32_int32(dst) }
+    else:
+        addError("", "Y U using big fields?!?!?!")
+    rc = rc + 1
+    return generated_code
+
+# =============================================================================
+# REGISTER_WRITE
+
+def register_write(fun, call):
+    global rc
+    generated_code = ""
+    args = call[1]
+    register = args[0] # field
+    index = args[1]
+    src = args[2]
+    if isinstance(index, int): # TODO
+        #[ res32 = ${index};
+    elif isinstance(index, p4_field): # TODO
+        #[ ${ extract_int32(index, 'res32') }
+    elif isinstance(val, p4_signature_ref):
+        #[ res32 = TODO;
+
+    if isinstance(src, int):
+        #[ value32 = ${src};
+    elif isinstance(src, p4_field):
+        if register.width <= 32 and src.width <= 32:
+            #if src.instance.metadata == register.instance.metadata:
+            #    #[ EXTRACT_INT32_BITS(pd, ${fld_id(src)}, value32)
+            #else:
+                #[ ${ extract_int32(src, 'value32') }
+    #[ uint8_t register_value_${rc}[${(register.width+7)/8}];
+    #[ memcpy(register_value_${rc}, &value32, 4);
+    #[ write_register(REGISTER_${register.name}, res32, register_value_${rc});
+    rc = rc + 1
     return generated_code
 
 # =============================================================================
@@ -192,7 +303,7 @@ def pop(fun, call):
 
 # =============================================================================
 
-for fun in useraction_objs:
+for fun in userActions(hlir):
     hasParam = fun.signature
     modifiers = ""
     ret_val_type = "void"

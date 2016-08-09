@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import p4_hlir.hlir.p4 as p4
-from utils.hlir import getTypeAndLength, hdr_prefix, fld_prefix, fld_id, format_p4_node 
+from utils.hlir import *
 from utils.misc import addError, addWarning 
 
 def format_state(state):
@@ -81,7 +81,8 @@ for pe_name, pe in hlir.p4_parser_exceptions.items():
 #[       (header_descriptor_t) {
 #[         .type = h,
 #[         .pointer = buf,
-#[         .length = header_instance_byte_width[h]
+#[         .length = header_instance_byte_width[h],
+#[         .var_field_bitwidth = 0
 #[       };
 #[ }
 #[ 
@@ -122,12 +123,24 @@ for state_name, parse_state in hlir.p4_parse_states.items():
 for state_name, parse_state in hlir.p4_parse_states.items():
     #[ static void parse_state_${state_name}(packet_descriptor_t* pd, uint8_t* buf, lookup_table_t** tables)
     #[ {
+    #[     uint32_t value32;
+    #[     (void)value32;
     
     for call in parse_state.call_sequence:
         if call[0] == p4.parse_call.extract:
-            header_instance_name = hdr_prefix(call[1].name)
-            #[     extract_header(buf, pd, ${header_instance_name});
-            #[     buf += header_instance_byte_width[${header_instance_name}];
+            hi = call[1] 
+            #[     extract_header(buf, pd, ${hdr_prefix(hi.name)});
+            if isinstance(hi.header_type.length, p4.p4_expression):
+                #[     pd->headers[${hdr_prefix(hi.name)}].length = ${format_expr(resolve_field_ref(hlir, hi, hi.header_type.length))};
+                #[     pd->headers[${hdr_prefix(hi.name)}].var_field_bitwidth = pd->headers[${hdr_prefix(hi.name)}].length * 8 - ${sum([f[1] if f[1] != p4.P4_AUTO_WIDTH else 0 for f in hi.header_type.layout.items()])};
+                #[     buf += pd->headers[${hdr_prefix(hi.name)}].length;
+            else:
+                #[     buf += header_instance_byte_width[${hdr_prefix(hi.name)}];
+            for f in hi.fields:
+                if parsed_field(hlir, f):
+                    if f.width <= 32:
+                        #[ EXTRACT_INT32_AUTO(pd, ${fld_id(f)}, value32)
+                        #[ pd->fields.${fld_id(f)} = value32;
         elif call[0] == p4.parse_call.set:
             dest_field, src = call[1], call[2]
             if type(src) is int or type(src) is long:

@@ -14,15 +14,14 @@
 #ifndef __BACKEND_H_
 #define __BACKEND_H_
 
-#include "aliases.h"
 #include "ctrl_plane_backend.h"
 #include "data_plane_data.h"
 #include "dataplane.h"
 
-#ifdef NDEBUG
-#define debug(M, ...)
-#else
+#ifdef P4DPDK_DEBUG
 #define debug(M, ...) fprintf(stderr, "[DEBUG] " M "", ##__VA_ARGS__)
+#else
+#define debug(M, ...)
 #endif
 
 typedef struct packet_descriptor_s packet_descriptor_t;
@@ -60,8 +59,12 @@ uint8_t*  ternary_lookup (lookup_table_t* t, uint8_t* key);
 
 #include "dpdk_primitives.h" // field manipulation primitives are implemented as macros
 
-void push(packet_descriptor_t* p, header_stack_t h);
-void pop (packet_descriptor_t* p, header_stack_t h);
+void     increase_counter (int id, int index);
+void        read_register (int id, int index, uint8_t* dst);
+void       write_register (int id, int index, uint8_t* src);
+
+void push (packet_descriptor_t* p, header_stack_t h);
+void pop  (packet_descriptor_t* p, header_stack_t h);
 
 void add_header             (packet_descriptor_t* p, header_reference_t h);
 void remove_header          (packet_descriptor_t* p, header_reference_t h);

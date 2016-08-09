@@ -10,6 +10,7 @@ controller_for_example["test"]="dpdk_controller"
 controller_for_example["l2_switch_test"]="dpdk_controller"
 controller_for_example["l3_routing_test"]="dpdk_l3_controller"
 controller_for_example["l3_routing-full"]="dpdk_l3-full_controller"
+controller_for_example["l2_l3-fixed"]="dpdk_l2_l3_controller"
 
 print_usage_and_exit() {
     (>&2 echo "Usage: $0 <switch executable> [controller name] [controller params file] -- <options for compiled switch>")
@@ -82,7 +83,7 @@ fi
 
 # Compile the controller
 cd $CTRL_PLANE_DIR
-make $CONTROLLER
+make -j $CONTROLLER
 cd - >/dev/null
 
 # Stop all running controllers
@@ -104,4 +105,4 @@ echo "Controller log file: ${CONTROLLER_LOG}"
 
 
 # Start the program
-sudo ${P4_SWITCH} ${P4DPDK_EXEC_OPTS}
+sudo -E ${P4_SWITCH} ${P4DPDK_EXEC_OPTS}
