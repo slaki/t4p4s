@@ -1,0 +1,51 @@
+P4Action*
+	Annotation*
+	Parameter*
+		Type_Name
+			Path
+	StatOrDecl*
+P4Control*
+	Type_Control
+		Type_Var*
+		Parameter*
+			Type_Name
+				Path
+	Parameter*
+		Type_Name
+			Path
+	P4Table*
+		Annotation*
+			StringLiteral
+		Parameter*
+			Type_Name
+				Path
+		TableProperty*
+			ActionListElement*
+				MethodCallExpression
+					Member
+						Path
+					zip Type Expression
+				ExpressionValue
+					MethodCallExpression
+						Member
+							Path
+						zip Type Expression
+	BlockStatement
+		MethodCallStatement
+			MethodCallExpression
+				Member
+					Path
+				zip Type Expression
+			zip Type Expression
+Type_Package
+	Parameter*
+		Type_Name
+			Path
+Declaration_Instance
+	Type_Name
+		Path
+	2 Expression*
+		ConstructorCallExpression
+			Type_Name
+				Path
+		2 Expression*
