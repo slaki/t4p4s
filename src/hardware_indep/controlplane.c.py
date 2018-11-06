@@ -23,12 +23,15 @@ def match_type_order(t):
 #[ #include "dpdk_lib.h"
 #[ #include "actions.h"
 #[ #include "tables.h"
+#[ #include "PI/proto/pi_server.h"
+#[ #include "p4rt/device_mgr.h"
+
 
 #[ extern void table_setdefault_promote  (int tableid, uint8_t* value);
 #[ extern void exact_add_promote  (int tableid, uint8_t* key, uint8_t* value);
 #[ extern void lpm_add_promote    (int tableid, uint8_t* key, uint8_t depth, uint8_t* value);
 #[ extern void ternary_add_promote(int tableid, uint8_t* key, uint8_t* mask, uint8_t* value);
-
+#[ extern device_mgr_t *dev_mgr_ptr;
 
 for table in hlir16.tables:
     #[ extern void table_${table.name}_key(packet_descriptor_t* pd, uint8_t* key); // defined in dataplane.c
@@ -228,5 +231,7 @@ for table in hlir16_tables_with_keys:
 #[ #ifndef T4P4S_NO_CONTROL_PLANE
 #[     bg = create_backend(3, 1000, "localhost", 11111, recv_from_controller);
 #[     launch_backend(bg);
+#[     dev_mgr_init_with_t4p4s(dev_mgr_ptr, recv_from_controller);
+#[     PIGrpcServerRun();
 #[ #endif
 #[ }

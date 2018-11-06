@@ -37,4 +37,15 @@ CFLAGS += -I "$(CDIR)/../../src/hardware_dep/dpdk/includes"
 CFLAGS += -I "$(CDIR)/../../src/hardware_dep/dpdk/ctrl_plane"
 CFLAGS += -I "$(CDIR)/../../src/hardware_dep/dpdk/data_plane"
 
+#EXTRA_
+CFLAGS += -L "$(P4RTDIR)/static_lib"
+#EXTRA_
+CFLAGS += -L "$(GRPCDIR)/lib/.libs"
+EXTRA_LDFLAGS += -lp4rt
+EXTRA_LDFLAGS += -lgrpc-c
+EXTRA_LDFLAGS += -lgrpc 
+EXTRA_LDFLAGS += -lgpr 
+EXTRA_LDFLAGS += -lprotobuf-c 
+EXTRA_LDFLAGS += -lpthread
+
 include $(RTE_SDK)/mk/rte.extapp.mk

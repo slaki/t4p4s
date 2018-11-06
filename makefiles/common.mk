@@ -24,6 +24,20 @@ CFLAGS += -I "$(CDIR)/../../hardware_dep/shared/includes"
 CFLAGS += -I "$(CDIR)/srcgen"
 VPATH  += $(CDIR)/srcgen
 
+# P4Runtime support
+GRPCDIR = "$(CDIR)/../../../../grpc-c/build"
+P4RTDIR = "$(CDIR)/../../../../P4RuntimeAPI"
+PIDIR = "$(CDIR)/../../../../PI"
+
+CFLAGS += -I "$(P4RTDIR)"
+CFLAGS += -I "$(GRPCDIR)/lib/h"
+CFLAGS += -I "$(GRPCDIR)/third_party/protobuf-c"
+CFLAGS += -I "$(GRPCDIR)/third_party/grpc/include"
+CFLAGS += -I "$(P4RTDIR)/grpc-c-out"
+CFLAGS += -I "$(P4RTDIR)/include"
+CFLAGS += -I "$(PIDIR)/proto/server"
+# end of P4Runtime support
+
 ifneq ($(P4_GCC_OPTS),)
 CFLAGS += $(P4_GCC_OPTS)
 endif
