@@ -216,7 +216,7 @@ def gen_format_statement(stmt):
             dst_header_id = 'header_instance_{}'.format(dst_name)
             dst_field_id = member_to_field_id(dst)
 
-            if dst_width < 32:
+            if dst_width <= 32:
                 src_buffer = 'value32'
                 if src.node_type == 'Member':
                     #[ $src_buffer = ${format_expr(src)};
